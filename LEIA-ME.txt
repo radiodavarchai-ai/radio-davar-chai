@@ -1,0 +1,36 @@
+RÁDIO DAVAR CHAI — PALAVRA VIVA
+EKKLESIA CASA DE ORAÇÃO
+
+SITE ESTÁTICO GRATUITO PARA GITHUB PAGES
+
+Arquivos:
+- index.html: página principal
+- style.css: identidade visual e responsividade
+- script.js: controles do site
+- config.js: configurações que você deve preencher
+- assets/logo-davar-chai.png: arte aprovada
+
+COMO PUBLICAR NO GITHUB PAGES:
+1. Entre em github.com e crie um repositório público chamado radio-davar-chai.
+2. Envie TODOS os arquivos e a pasta assets, mantendo a estrutura.
+3. Em Settings > Pages > Build and deployment, escolha Deploy from a branch.
+4. Selecione main e / (root), depois Save.
+5. Aguarde a publicação. O endereço normalmente será https://SEU-USUARIO.github.io/radio-davar-chai/.
+
+COMO ATIVAR A TRANSMISSÃO:
+1. Obtenha a URL HTTPS direta do áudio de um servidor Icecast/Shoutcast/AzuraCast.
+2. Abra config.js e preencha streamUrl com essa URL.
+3. Salve e publique a alteração no GitHub.
+4. Teste no celular e no computador. O site não hospeda áudio; o streaming é separado.
+
+COMO ATIVAR PEDIDOS DE ORAÇÃO:
+1. Crie/defina um endereço de e-mail do ministério.
+2. Preencha prayerEmail em config.js.
+3. O botão abre o aplicativo de e-mail do visitante; não há banco de dados.
+4. Não publique dados pessoais dos pedidos.
+
+IMPORTANTE:
+- A grade de programação é apenas uma proposta, não uma programação ativa.
+- O player começa desativado para não anunciar uma transmissão inexistente.
+- O site e os códigos não têm mensalidade. Um servidor de streaming 24h pode ter custo.
+- Verifique licenciamento e direitos autorais antes de transmitir músicas e gravações.
