@@ -1,7 +1,7 @@
 // Guarda a "casca" do app para abrir rápido e funcionar offline. O áudio da rádio e os dados nunca são guardados.
-const CACHE = "radio-app-v5";
+const CACHE = "radio-app-v6";
 const CACHE_NOTE = "Os livros da Bíblia ficam guardados depois da primeira leitura.";
-const SHELL = ["./", "index.html", "manifest.json", "icons/icon-192.png", "icons/icon-512.png", "img/logo.jpg", "img/jerusalem.jpg"];
+const SHELL = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener("fetch", e => {
