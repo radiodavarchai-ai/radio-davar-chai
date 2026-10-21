@@ -767,12 +767,19 @@ function refLink(ref){
 function lerRef(ref){ const r=parseRef(ref); if(!r) return; ir("biblia"); abrirBiblia(r.b,r.c,r.v1,r.v2); }
 
 const bibliaCache = {};
+let bibliaTodaPromise = null;
 async function livro(b){
-  if(!bibliaCache[b]){
-    const r = await fetch(`biblia/${String(b).padStart(2,"0")}.json`);
-    if(!r.ok) throw new Error("Não foi possível carregar este livro. Verifique a internet.");
-    bibliaCache[b] = await r.json();
-  }
+  if(bibliaCache[b]) return bibliaCache[b];
+  // 1) arquivo único biblia.json (mais fácil de publicar)  2) pasta biblia/ (um arquivo por livro)
+  try{
+    bibliaTodaPromise = bibliaTodaPromise || fetch("biblia.json").then(r=>{ if(!r.ok) throw 0; return r.json(); });
+    const todos = await bibliaTodaPromise;
+    todos.forEach((L,i)=>bibliaCache[i+1]=L);
+    if(bibliaCache[b]) return bibliaCache[b];
+  }catch(e){ bibliaTodaPromise = null; }
+  const r = await fetch(`biblia/${String(b).padStart(2,"0")}.json`).catch(()=>null);
+  if(!r || !r.ok) throw new Error("Não foi possível carregar a Bíblia. Verifique a internet ou se o arquivo biblia.json foi enviado ao site.");
+  bibliaCache[b] = await r.json();
   return bibliaCache[b];
 }
 const store = { get(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v??d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
