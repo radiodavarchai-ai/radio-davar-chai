@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f6f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<title>Controle financeiro 2.0</title>
+<style>
+:root{--bg:#f5f6f4;--card:#fff;--tx:#1d2420;--mu:#6b756f;--ln:#e3e7e4;--ac:#1f7a5a;--ok:#1f7a5a;--wa:#b88a00;--ho:#d9692b;--bad:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#121614;--card:#1b211e;--tx:#e8ece9;--mu:#9aa6a0;--ln:#2a322e;--ac:#3fb98c;--ok:#3fb98c;--wa:#e0b43a;--ho:#f08a4b;--bad:#ef7a6c;color-scheme:dark}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}[hidden]{display:none!important}
+body{margin:0 auto;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:560px;padding:12px 12px 100px}
+h1{font-size:1.15rem;margin:6px 2px}h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mu);margin:18px 4px 6px}
+.top{display:flex;justify-content:space-between;align-items:center}.card{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:12px;margin-bottom:8px}
+.nav{display:flex;align-items:center;justify-content:space-between;margin:6px 0}
+button{font:inherit;border:1px solid var(--ln);background:var(--card);color:var(--tx);border-radius:10px;padding:8px 14px;cursor:pointer}button.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}.sum small{color:var(--mu);display:block;font-size:.75rem}.sum b{font-size:1.02rem}
+.st{background:color-mix(in srgb,var(--c) 15%,var(--card));border:1px solid var(--c);border-radius:14px;padding:12px;margin-bottom:8px}.st b{color:var(--c);font-size:1.05rem}
+.bar{height:8px;border-radius:4px;background:var(--ln);margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--c,var(--ac))}
+.row{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-top:1px solid var(--ln);cursor:pointer}.row:first-child{border-top:0}.row small{color:var(--mu);display:block}.v{text-align:right;white-space:nowrap}
+.det{padding:6px 0 10px;border-top:1px dashed var(--ln);font-size:.9rem;color:var(--mu)}.det button{margin:6px 6px 0 0}
+body.hide .v,body.hide .sum b,body.hide .det b{filter:blur(7px)}.pos{color:var(--ok)}.neg{color:var(--bad)}.mu{color:var(--mu)}
+form{display:grid;gap:8px}input,select{font:inherit;width:100%;padding:10px;border:1px solid var(--ln);border-radius:10px;background:var(--bg);color:var(--tx)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}label.ck{display:flex;gap:8px;align-items:center}label.ck input{width:auto}label.mu{font-size:.8rem}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;background:var(--card);border-top:1px solid var(--ln);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+nav div{display:flex;width:100%;max-width:560px;gap:4px}nav button{flex:1;border:0;background:none;font-size:.68rem;color:var(--mu);padding:6px 0}nav button.on{color:var(--ac);font-weight:700}
+#msg{padding:4px;color:var(--bad)}
+.auth{max-width:380px;margin:10vh auto 0}.auth h1{font-size:1.4rem}.auth form{margin-top:12px}
+.note{padding:10px 12px;border-radius:10px;border:1px solid var(--ac);background:color-mix(in srgb,var(--ac) 14%,var(--card))}.note.err{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--card))}
+.row.late{background:color-mix(in srgb,var(--bad) 12%,transparent);border-radius:8px;padding-left:6px;padding-right:6px}.vm{color:var(--bad);font-weight:700}.pgo{color:var(--ok);font-weight:700}
+</style></head><body>
+<div id="auth" hidden></div>
+<div id="main" hidden>
+<div class="top"><h1>💚 Controle financeiro 2.0</h1><button id="eye" title="Ocultar valores">👁</button></div><div id="msg"></div>
+
+<section class="pg" id="p-home">
+ <div id="alerta"></div>
+ <div class="nav"><button id="pv">‹</button><b id="mn"></b><button id="nx">›</button></div>
+ <div class="card sum" id="sum"></div><div class="st" id="st"></div>
+ <button id="hcar" data-t="car" style="width:100%;text-align:left;margin-bottom:8px"></button>
+ <div class="card" id="ccas" hidden></div>
+ <h2>Compras adicionadas</h2><div id="list"></div>
+</section>
+
+<section class="pg" id="p-add" hidden>
+ <h2 id="tg">Adicionar gasto</h2>
+ <form class="card" id="fg">
+  <select name="cat" id="gcat"></select>
+  <div id="gcard" hidden><label class="mu">Qual cartão?</label><select name="cartao" id="gcar"></select></div>
+  <input name="desc" placeholder="Descrição (ex.: Carro, Notebook)" required>
+  <div class="g2"><input name="valor" id="gval" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Valor" required><input name="data" id="gdata" type="date" required></div>
+  <input name="n" id="gn" type="number" min="1" inputmode="numeric" placeholder="Quantas parcelas? (1 = à vista)">
+  <input name="dia" id="gdia" type="number" min="1" max="31" inputmode="numeric" placeholder="Dia do vencimento (1 a 31, opcional)">
+  <div class="note" id="gprev" hidden></div>
+  <label class="ck" id="gfx"><input type="checkbox" name="fixo"> Despesa fixa (repete todo mês até eu excluir)</label>
+  <label class="ck" id="gcs"><input type="checkbox" name="cs"> Compartilhar com o casal</label>
+  <div class="g2"><button type="button" id="gc">Cancelar</button><button class="pri">Salvar</button></div>
+ </form>
+</section>
+
+<section class="pg" id="p-par" hidden><h2>Parcelados em andamento</h2><div id="parl"></div></section>
+
+<section class="pg" id="p-car" hidden>
+ <div class="nav"><button id="cpv">‹</button><b id="cmn"></b><button id="cnx">›</button></div>
+ <div class="card" id="csum"></div>
+ <h2>Faturas que vencem neste mês</h2><div id="clist"></div>
+</section>
+
+<section class="pg" id="p-pl" hidden>
+ <h2>Minha meta de economia</h2>
+ <form class="card" id="fmeta">
+  <input name="valor" type="number" step="0.01" min="1" inputmode="decimal" placeholder="Quanto quer guardar? (ex.: 5000)" required>
+  <input name="guardado" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Já guardei (opcional)">
+  <input name="prazo" type="number" min="1" max="120" inputmode="numeric" placeholder="Em quantos meses quer juntar? (opcional)">
+  <button class="pri">Calcular plano</button>
+ </form>
+ <div id="pl"></div>
+</section>
+
+<section class="pg" id="p-cfg" hidden>
+ <h2>Controle</h2>
+ <div class="card"><select id="cm"><option value="solteiro">Solteiro(a)</option><option value="casal">Casal (liga com o parceiro pelo código)</option></select><div id="cst" class="mu" style="margin-top:6px;font-size:.85rem"></div></div>
+ <h2>Meus cartões de crédito</h2>
+ <div id="cdl"></div>
+ <form class="card" id="fcd">
+  <b id="tcd">Cadastrar cartão</b>
+  <input name="nome" placeholder="Nome do cartão (ex.: Nubank, Itaú)" required maxlength="40">
+  <div class="g2"><div><label class="mu">Dia que fecha</label><input name="fecha" type="number" min="1" max="31" inputmode="numeric" placeholder="ex.: 30" required></div><div><label class="mu">Dia que vence</label><input name="vence" type="number" min="1" max="31" inputmode="numeric" placeholder="ex.: 10" required></div></div>
+  <small class="mu">Compras feitas a partir do dia do fechamento entram na fatura seguinte.</small>
+  <div class="g2"><button type="button" id="cdc">Cancelar</button><button class="pri">Salvar cartão</button></div>
+ </form>
+ <h2 id="tr">Cadastrar renda</h2>
+ <form class="card" id="fr">
+  <select name="cat"><option value="salario">Salário</option><option value="vr">Vale refeição</option><option value="vc">Vale combustível</option><option value="outro">Outro benefício</option></select>
+  <input name="desc" placeholder="Descrição (opcional)">
+  <input name="valor" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Valor mensal" required>
+  <label class="mu">A partir de qual mês?</label><input name="mes" type="month" required>
+  <label class="ck"><input type="checkbox" name="fixa" checked> Renda fixa (repete todo mês até eu excluir)</label>
+  <div class="g2"><button type="button" id="rc">Cancelar</button><button class="pri">Salvar</button></div>
+ </form>
+ <h2>Rendas cadastradas</h2><div id="rl"></div>
+ <h2>Trocar senha</h2>
+ <form class="card" id="fp"><input name="a" type="password" placeholder="Nova senha" autocomplete="new-password" required><input name="b" type="password" placeholder="Repita a nova senha" autocomplete="new-password" required><button class="pri">Trocar senha</button></form>
+ <h2>Entrada rápida</h2>
+ <div class="card"><div id="bst" class="mu" style="font-size:.9rem"></div><button id="bbtn" class="pri" style="margin-top:8px"></button></div>
+ <div id="adm"></div>
+ <button id="out" style="width:100%;margin-top:14px">Sair</button>
+</section>
+
+<nav><div><button data-t="home">🏠<br>Home</button><button data-t="add">➕<br>Adicionar</button><button data-t="par">🧾<br>Parcelados</button><button data-t="car">💳<br>Cartão</button><button data-t="pl">🎯<br>Planejar</button><button data-t="cfg">⚙️<br>Config.</button></div></nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const URL_='https://hojcvvpnleixxrubgsus.supabase.co',KEY='sb_publishable_-c0Qt2HSDLHHiHoNZ6NkWA_-ZYgZ_4Z',INITIAL='123456',FN=URL_+'/functions/v1/rapid-action';
+const sb=supabase.createClient(URL_,KEY,{auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:false}});
+sb.auth.onAuthStateChange((ev,se)=>{try{const b=JSON.parse(ls('bio')||'null');if(se&&b&&b.uid===se.user.id){b.rt=se.refresh_token;ls('bio',JSON.stringify(b))}}catch(e){}});
+const $=s=>document.querySelector(s),R=v=>(+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const E=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const onlyD=s=>String(s).replace(/\D/g,'');
+function cpfOk(c){if(c.length!==11||/^(\d)\1+$/.test(c))return false;for(const n of[9,10]){let t=0;for(let i=0;i<n;i++)t+=c[i]*(n+1-i);if((t*10%11)%10!=c[n])return false}return true}
+const fmtU=u=>/^\d{11}$/.test(u)?u.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'):u;
+const idx=(y,m)=>y*12+m-1,fm=i=>String(i%12+1).padStart(2,'0')+'/'+Math.floor(i/12);
+const H=new Date(),AGORA=idx(H.getFullYear(),H.getMonth()+1),hojeISO=new Date(H-H.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+let mes=AGORA,L=[],user=null,prof=null,edG=null,edR=null,pend=null,open=null,edU=null,openU=null,admNewOpen=false,users=[],META=null,SHARE=null,NAMES={},CARDS=[],edC=null,pendT=null;
+const SQLMSG='Falta rodar o SQL de atualização no Supabase (veja o LEIA-ME).';
+const CATS={mercado:'🛒 Mercado',gasolina:'⛽ Gasolina',aluguel:'🏠 Aluguel',internet:'📶 Internet',financiamento:'🚗 Financiamento',cartao:'💳 Cartão',faculdade:'🎓 Faculdade',outros:'📦 Outros'};
+const RC={salario:'Salário',vr:'Vale refeição',vc:'Vale combustível',outro:'Outro benefício'};
+const PARC=['financiamento','cartao','outros'],FIXAS=['aluguel','internet','faculdade'];
+const fim=i=>i.n>0?i.ini+i.n-1:null,ativo=(i,m)=>i.ini<=m&&(i.n==0||m<=fim(i));
+const mine=i=>i.user_id===user.id,canEdit=i=>mine(i)||SHARE=='tudo',tag=i=>i.user_id!==user.id?' · '+E(NAMES[i.user_id]||'parceiro(a)'):'';
+const msg=(t,ok)=>{const m=$('#msg');m.textContent=t||'';m.style.color=ok?'var(--ok)':'var(--bad)'};
+const soma=(m,k)=>L.filter(i=>i.k==k&&ativo(i,m)).reduce((s,i)=>s+i.v,0);
+/* cartão: em qual mês a compra é paga. Compra a partir do dia do fechamento vai para a fatura seguinte;
+   a fatura é paga no mesmo mês do fechamento se o vencimento vem depois dele (ex.: fecha 3, vence 10),
+   ou no mês seguinte se o vencimento vem antes (ex.: fecha 30, vence 10). */
+const ultDia=(y,mo)=>new Date(y,mo+1,0).getDate();
+function faturaIdx(data,c){const[y,m,d]=String(data).split('-').map(Number);const fc=Math.min(c.fecha,ultDia(y,m-1));return idx(y,m)+(d>=fc?1:0)+(c.vence>c.fecha?0:1)}
+const cardOf=i=>i.cat=='cartao'&&i.cartao_id?CARDS.find(c=>c.id==i.cartao_id):null;
+const fechaDe=(c,m)=>dueStr({dia:c.fecha},m-(c.vence>c.fecha?0:1));
+const fatCard=(c,m)=>L.filter(i=>i.k=='g'&&cardOf(i)===c&&ativo(i,m)).reduce((s,i)=>s+i.v,0);
+
+/* ---------- login, senha, sessão ---------- */
+function authV(h){$('#main').hidden=true;$('#auth').hidden=false;$('#auth').innerHTML=h}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}}
+const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))),unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function bioOk(){try{return !!(window.PublicKeyCredential&&PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())}catch(e){return false}}
+function loginV(m){const lg=ls('lg')||'',bio=!!ls('bio');
+ authV(`<div class="auth"><h1>💚 Controle financeiro 2.0</h1><p class="mu">Entre com o seu login (nome ou CPF) e a senha que a administradora cadastrou.</p>${m?`<p class="note err">${E(m)}</p>`:''}
+ ${bio?'<button class="pri" style="width:100%" onclick="bioLogin()">🔐 Entrar com biometria</button><p class="mu" style="text-align:center;margin:8px 0">ou use login e senha</p>':''}
+ <form onsubmit="doLogin(event)"><input name="u" value="${E(lg)}" placeholder="Login (nome ou CPF)" autocapitalize="none" autocomplete="username" required><input name="p" type="password" placeholder="Senha" autocomplete="current-password" required><label class="ck"><input type="checkbox" name="lg" ${lg?'checked':''}> Lembrar meu login neste aparelho</label><button class="pri">Entrar</button></form></div>`)}
+async function doLogin(ev){
+ ev.preventDefault();const f=new FormData(ev.target);let ok=false;
+ try{
+  const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+KEY},body:JSON.stringify({action:'login',identifier:f.get('u'),password:f.get('p')})});
+  const j=await r.json();
+  if(r.ok&&j.access_token){const{data,error}=await sb.auth.setSession({access_token:j.access_token,refresh_token:j.refresh_token});if(!error){user=data.user;ok=true}}
+ }catch(e){}
+ if(!ok)return loginV('Login ou senha incorretos.');
+ ls('lg',f.has('lg')?String(f.get('u')).trim():null);
+ if(await loadProf()){if(prof.must_change_password)pwV();else{await startApp();offerBio()}}
+}
+/* biometria: a digital/rosto só libera a sessão guardada neste aparelho */
+async function enableBio(){
+ try{
+  const cred=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'Controle financeiro'},user:{id:new TextEncoder().encode(user.id),name:prof.display_name||'usuario',displayName:prof.display_name||'usuario'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'discouraged'},timeout:60000}});
+  const{data:{session}}=await sb.auth.getSession();
+  ls('bio',JSON.stringify({cid:b64(cred.rawId),rt:session.refresh_token,uid:user.id}));msg('Biometria ativada neste aparelho.',1);
+ }catch(e){msg('Não foi possível ativar a biometria neste aparelho.')}
+ uiBio();
+}
+function disableBio(){ls('bio',null);ls('bioNo','1');msg('Biometria desativada neste aparelho.',1);uiBio()}
+async function bioLogin(auto){
+ const b=JSON.parse(ls('bio')||'null');if(!b)return;
+ try{await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:unb64(b.cid),transports:['internal']}],userVerification:'required',timeout:60000}})}
+ catch(e){return auto?0:loginV('Biometria cancelada ou não reconhecida. Entre com login e senha.')}
+ const{data,error}=await sb.auth.refreshSession({refresh_token:b.rt});
+ if(error||!data.session){ls('bio',null);return loginV('A entrada salva expirou. Entre com login e senha e ative a biometria de novo.')}
+ user=data.user;if(await loadProf()){if(prof.must_change_password)pwV();else startApp()}
+}
+async function offerBio(){if(ls('bio')||ls('bioNo')||!await bioOk())return;if(confirm('Ativar entrada com biometria (digital ou rosto) neste aparelho?'))await enableBio();else ls('bioNo','1')}
+async function uiBio(){const ok=await bioOk(),on=!!ls('bio');
+ $('#bst').textContent=!ok?'Este aparelho ou navegador não oferece biometria (ou o endereço não é https).':on?'Biometria ativada neste aparelho: ao abrir o app, entre com digital ou rosto.':'Entre com digital ou rosto, sem digitar a senha.';
+ $('#bbtn').hidden=!ok;$('#bbtn').textContent=on?'Desativar biometria':'Ativar biometria'}
+async function loadProf(){
+ const{data,error}=await sb.from('profiles').select('*').eq('id',user.id).single();
+ if(error||!data){await sb.auth.signOut();user=null;loginV('Perfil não encontrado. Peça à administradora para recriar seu acesso.');return false}
+ prof=data;return true;
+}
+function pwV(m){authV(`<div class="auth"><h1>Crie sua senha</h1><p class="mu">Primeiro acesso: escolha uma senha nova com 6 ou mais caracteres, diferente de ${INITIAL}.</p>${m?`<p class="note err">${E(m)}</p>`:''}<form onsubmit="doFirst(event)"><input name="a" type="password" placeholder="Nova senha" autocomplete="new-password" required><input name="b" type="password" placeholder="Repita a nova senha" autocomplete="new-password" required><button class="pri">Salvar senha</button></form><p><button onclick="logout()">Sair</button></p></div>`)}
+async function setPw(a,b){
+ if(a!==b)return'As duas senhas não são iguais.';
+ if(a.length<6||a===INITIAL)return`A senha precisa ter 6 ou mais caracteres e ser diferente de ${INITIAL}.`;
+ const{error}=await sb.auth.updateUser({password:a});if(error)return error.message;
+ await sb.from('profiles').update({must_change_password:false}).eq('id',user.id);prof.must_change_password=false;return'';
+}
+async function doFirst(ev){ev.preventDefault();const f=ev.target,er=await setPw(f.a.value,f.b.value);if(er)pwV(er);else{await startApp();offerBio()}}
+async function logout(){if(!ls('bio'))await sb.auth.signOut();user=prof=null;L=[];META=null;loginV()}
+async function startApp(){
+ $('#auth').hidden=true;$('#main').hidden=false;uiMode();uiBio();
+ await load();resetG();resetR();setTab('home');render();
+ $('#adm').innerHTML='';if(prof.is_admin)admV();
+}
+const SHL={tudo:'tudo junto (um caixa único)',casal:'rendas + gastos marcados como casal',rendas:'só as rendas'};
+function uiMode(){const c=prof.mode=='casal';$('#cm').value=prof.mode;$('#cm').hidden=c&&!!prof.couple_code;$('#gcs').style.display=c&&SHARE=='casal'?'':'none';
+ $('#cst').textContent=!c?'':!prof.couple_code?'Aguardando a administradora definir o código do casal do seu perfil.':!SHARE?'Código '+prof.couple_code+': aguardando a administradora liberar o compartilhamento.':'Ligado ao casal (código '+prof.couple_code+') · compartilham: '+SHL[SHARE]+'. Para mudar, fale com a administradora.'}
+
+/* ---------- dados (Supabase) ---------- */
+async function load(){
+ const cr=await sb.from('cartoes').select('*');
+ CARDS=cr.error?[]:(cr.data||[]).map(c=>({...c,fecha:+c.fecha,vence:+c.vence,pg:c.pg||{}})).sort((a,b)=>String(a.nome).localeCompare(b.nome));
+ const{data,error}=await sb.from('items').select('*');
+ if(error)msg(/items/.test(error.message)?SQLMSG:error.message);else if(cr.error)msg(SQLMSG);
+ L=(data||[]).map(r=>({...r,desc:r.descr,v:+r.v,total:+r.total}));
+ L.forEach(i=>{const c=cardOf(i);if(c&&i.data)i.ini=faturaIdx(i.data,c)});
+ const mt=await sb.from('metas').select('*').maybeSingle(),f=document.forms.fmeta;
+ META=mt.data?{valor:+mt.data.valor,guardado:+mt.data.guardado,prazo:mt.data.prazo}:null;
+ f.valor.value=META?META.valor:'';f.guardado.value=META&&META.guardado?META.guardado:'';f.prazo.value=META&&META.prazo?META.prazo:'';
+ SHARE=null;NAMES={};
+ if(prof.mode=='casal'&&prof.couple_code){
+  const c=await sb.from('couples').select('share').eq('code',prof.couple_code).maybeSingle();SHARE=c.data?c.data.share:null;
+  const mb=await sb.rpc('my_couple_members');(mb.data||[]).forEach(m=>NAMES[m.id]=m.display_name);
+ }
+ uiMode();
+}
+async function salvar(id,o,fn){
+ const row={k:o.k,cat:o.cat,descr:o.desc,total:o.total||0,n:o.n,v:o.v,ini:o.ini,data:o.data||null,quem:o.quem||'eu',scope:o.scope||'pessoal',couple_code:prof.mode=='casal'?prof.couple_code:null,dia:o.dia||null,pg:o.pg||{}};
+ if(o.cat=='cartao'||o.hadCard)row.cartao_id=o.cat=='cartao'?o.cartao_id||null:null;
+ const{error}=id?await sb.from('items').update(row).eq('id',id):await sb.from('items').insert(row);
+ if(error)return msg(/cartao/.test(error.message)?SQLMSG:'Não foi possível salvar: '+error.message);
+ msg();await load();fn();render();
+}
+
+/* ---------- telas ---------- */
+function status(e,s){const r=e>0?s/e:(s>0?9:0);return r<=.7?['var(--ok)','Tranquilo','Seus gastos estão confortáveis.']:r<=.9?['var(--wa)','Atenção','Gastos já passam de 70% da renda.']:r<=1?['var(--ho)','Apertado','Quase sem folga: gastos acima de 90% da renda.']:['var(--bad)','Estourando a renda','Os gastos passaram do que entra.']}
+const dueDate=(i,m)=>{const y=Math.floor(m/12),mo=m%12;return new Date(y,mo,Math.min(i.dia,new Date(y,mo+1,0).getDate()))};
+const diasAte=(i,m)=>Math.round((dueDate(i,m)-new Date(H.getFullYear(),H.getMonth(),H.getDate()))/864e5);
+const dueStr=(i,m)=>{const d=dueDate(i,m);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')};
+const pago=(i,m)=>!!(i.pg&&i.pg[m]),quando=d=>d<0?'Vencida há '+(-d)+' dia(s)':d==0?'Vence hoje':'Vence em '+d+' dia(s)';
+function venc(i,m){if(!i.dia)return'';if(pago(i,m))return'<span class="pgo">✓ Pago</span>';const d=diasAte(i,m);return m==AGORA&&d<=5?`<span class="vm">${quando(d)} · ${dueStr(i,m)}</span>`:`Vence ${dueStr(i,m)}`}
+function alertas(){const out=[],m=AGORA;
+ L.filter(i=>canEdit(i)&&i.k=='g'&&i.dia).forEach(i=>{if(!ativo(i,m)||pago(i,m))return;const d=diasAte(i,m);if(d<=5)out.push({nome:E(i.desc),v:i.v,d,ds:dueStr(i,m),bt:`data-p="${i.id}"`})});
+ CARDS.forEach(c=>{const v=fatCard(c,m);if(!v||c.pg[m])return;const d=diasAte({dia:c.vence},m);if(d<=5)out.push({nome:'Fatura '+E(c.nome),v,d,ds:dueStr({dia:c.vence},m),bt:`data-fp="${c.id}"`})});
+ out.sort((a,b)=>a.d-b.d);
+ $('#alerta').innerHTML=out.length?`<div class="st" style="--c:var(--bad)"><b>⏰ Contas para vencer</b>`+out.map(o=>`<div class="row" style="cursor:default"><div>${o.nome}<small><span class="vm">${quando(o.d)}</span> · ${o.ds}</small></div><div class="v">${R(o.v)}<br><button ${o.bt} data-m="${m}" style="padding:2px 8px;margin-top:3px">✓ Pago</button></div></div>`).join('')+`</div>`:''}
+const btns=(i,m=mes)=>canEdit(i)?`${i.dia&&ativo(i,m)?`<button data-p="${i.id}" data-m="${m}">${pago(i,m)?'Desfazer pago':'✓ Marcar como pago'}</button>`:''}<button data-e="${i.id}">✎ Editar</button><button data-d="${i.id}">${pend==i.id?'Excluir?':'✕ Excluir'}</button>`:'';
+function row(i){const a=i.n>1?Math.max(1,Math.min(i.n,mes-i.ini+1)):0,cd=cardOf(i),sub=CATS[i.cat]+(cd?' '+E(cd.nome):'')+(i.n>1?` · <b>${a}/${i.n}</b>`:i.n==0?' · fixa':'')+(i.scope=='casal'&&SHARE=='casal'?' · casal':'')+tag(i),vv=venc(i,mes),late=i.dia&&!pago(i,mes)&&mes==AGORA&&diasAte(i,mes)<=5;
+ const det=open==i.id?`<div class="det">Compra de <b>${R(i.total)}</b> em ${E(i.data).split('-').reverse().join('/')}${cd?`<br>Entrou na fatura de <b>${fm(i.ini)}</b> do ${E(cd.nome)} (fecha dia ${cd.fecha}, vence dia ${cd.vence})`:i.cat=='cartao'?'<br>Sem cartão definido: toque em Editar e escolha o cartão.':''}<br>${i.n>1?`${i.n} parcelas de <b>${R(i.v)}</b> · termina em ${fm(fim(i))}`:i.n==0?'Despesa fixa, repete até excluir':'À vista'}${i.dia?`<br>Vencimento: dia <b>${i.dia}</b> · ${pago(i,mes)?'pago neste mês':'ainda não pago'}`:''}<br>${btns(i)}</div>`:'';
+ return`<div data-x="${i.id}" class="row${late?' late':''}"><div>${E(i.desc)}<small>${sub}${vv?' · '+vv:''}</small></div><div class="v">${R(i.v)}${canEdit(i)&&i.dia&&!pago(i,mes)?`<br><button data-p="${i.id}" data-m="${mes}" style="padding:2px 8px;margin-top:3px">✓ Pago</button>`:''}</div></div>${det}`}
+function render(){if(!prof)return;cartao();alertas();plano();cartoesCfg();cardsSel();prevG();
+ $('#mn').textContent=fm(mes);const e=soma(mes,'r'),s=soma(mes,'g'),sd=e-s,[c,t,d]=status(e,s);
+ $('#sum').innerHTML=`<div><small>Entrada</small><b class="pos">${R(e)}</b></div><div><small>Saída</small><b class="neg">${R(s)}</b></div><div><small>Sobrando</small><b class="${sd<0?'neg':'pos'}">${R(sd)}</b></div>`;
+ $('#st').style.setProperty('--c',c);$('#st').innerHTML=`<b>${t}</b><div class="mu">${d}${e>0?` (${Math.round(s/e*100)}% da renda)`:''}</div><div class="bar" style="--c:${c}"><i style="width:${Math.min(100,e>0?s/e*100:100)}%"></i></div>`;
+ const cc=prof.mode=='casal'&&SHARE=='casal'?L.filter(i=>i.k=='g'&&i.scope=='casal'&&ativo(i,mes)):[];
+ $('#ccas').hidden=!cc.length;$('#ccas').innerHTML=`👫 <b>Casal</b> · gastos compartilhados do mês <b class="neg v">${R(cc.reduce((x,i)=>x+i.v,0))}</b>`;
+ const at=L.filter(i=>i.k=='g'&&ativo(i,mes));$('#list').innerHTML=at.length?`<div class="card">${at.map(row).join('')}</div>`:'<div class="card mu" style="text-align:center">Nenhuma compra neste mês. Use “Adicionar”.</div>';
+ const pl=L.filter(i=>i.k=='g'&&i.n>1&&fim(i)>=AGORA).sort((a,b)=>fim(a)-fim(b)),comp=pl.filter(i=>ativo(i,AGORA)).reduce((x,i)=>x+i.v,0);
+ $('#parl').innerHTML=pl.length?`<div class="card">Comprometido por mês agora: <b class="neg">${R(comp)}</b></div>`+pl.map(i=>{const a=Math.max(0,Math.min(i.n,AGORA-i.ini+1)),rest=i.n-a;
+  return`<div class="card"><div style="display:flex;justify-content:space-between"><div>${E(i.desc)}<small class="mu" style="display:block">${CATS[i.cat]} · compra de ${R(i.total)}</small></div><div class="v"><b>${a?a+'/'+i.n:'começa '+fm(i.ini)}</b><br>${R(i.v)}</div></div><div class="bar"><i style="width:${a/i.n*100}%"></i></div><small class="mu">Termina em <b>${fm(fim(i))}</b> · faltam ${rest} parcelas (${R(rest*i.v)})</small>${i.dia&&ativo(i,AGORA)?`<div><small class="mu">${venc(i,AGORA)}</small></div>`:''}<div>${btns(i,AGORA)}</div></div>`}).join(''):'<div class="card mu">Nenhuma compra parcelada em andamento.</div>';
+ const rs=L.filter(i=>i.k=='r');$('#rl').innerHTML=rs.length?`<div class="card">${rs.map(i=>`<div class="row" style="cursor:default"><div>${E(i.desc)||RC[i.cat]}<small>${RC[i.cat]}${i.n==0?' · fixa':''}${tag(i)}</small></div><div class="v pos">${R(i.v)}<br>${btns(i)}</div></div>`).join('')}</div>`:'<div class="card mu">Nenhuma renda cadastrada ainda.</div>'}
+function cartao(){const cs=L.filter(i=>i.k=='g'&&i.cat=='cartao');$('#cmn').textContent=fm(mes);
+ const at=cs.filter(i=>ativo(i,mes)),fat=at.reduce((s,i)=>s+i.v,0),total=cs.reduce((s,i)=>s+i.total,0);
+ const fut=cs.reduce((s,i)=>s+(i.n-Math.max(0,Math.min(i.n,mes-i.ini+1)))*i.v,0);
+ $('#csum').innerHTML=`<div class="sum"><div><small>Faturas do mês</small><b class="neg">${R(fat)}</b></div><div><small>Próximas faturas</small><b>${R(fut)}</b></div><div><small>Total comprado</small><b>${R(total)}</b></div></div><small class="mu" style="display:block;margin-top:8px">“Próximas faturas” soma as parcelas que ainda vão cair depois de ${fm(mes)}.</small>`;
+ $('#hcar').innerHTML=`💳 <b>Cartão de crédito</b> · fatura do mês <span class="v neg" style="text-align:left"><b>${R(fat)}</b></span> ›`;
+ let h=CARDS.map(c=>{const it=at.filter(i=>cardOf(i)===c),v=it.reduce((s,i)=>s+i.v,0),pg=!!c.pg[mes];
+  return`<div class="card"><div style="display:flex;justify-content:space-between;gap:8px"><div><b>💳 ${E(c.nome)}</b><small class="mu" style="display:block">Fecha ${fechaDe(c,mes)} · vence ${dueStr({dia:c.vence},mes)}</small></div><div class="v"><b class="neg">${R(v)}</b>${v?`<br><button data-fp="${c.id}" data-m="${mes}" style="padding:2px 8px;margin-top:3px">${pg?'✓ Paga · desfazer':'✓ Marcar paga'}</button>`:''}</div></div>${it.length?`<div style="margin-top:6px">${it.map(row).join('')}</div>`:'<small class="mu">Nenhuma compra nesta fatura.</small>'}</div>`}).join('');
+ const sem=at.filter(i=>!cardOf(i));
+ if(sem.length)h+=`<div class="card"><b>Sem cartão definido</b><small class="mu" style="display:block">Compras lançadas antes de cadastrar o cartão (ou do cartão do parceiro). Edite e escolha o cartão para irem para a fatura certa.</small><div style="margin-top:6px">${sem.map(row).join('')}</div></div>`;
+ if(!CARDS.length)h=`<div class="note">Cadastre seu cartão em <b>Config.</b> com o dia que fecha e o dia que vence. Assim cada compra vai sozinha para a fatura certa.</div>`+h;
+ $('#clist').innerHTML=h||'<div class="card mu" style="text-align:center">Nenhuma compra no cartão neste mês.</div>'}
+function cartoesCfg(){$('#cdl').innerHTML=CARDS.length?`<div class="card">${CARDS.map(c=>`<div class="row" style="cursor:default"><div>💳 ${E(c.nome)}<small>Fecha dia ${c.fecha} · vence dia ${c.vence}</small></div><div class="v"><button data-ce="${c.id}">✎</button> <button data-cd="${c.id}">${pend=='c'+c.id?'Excluir?':'✕'}</button></div></div>`).join('')}</div>`:''}
+function cardsSel(){const s=$('#gcar'),v=s.value;s.innerHTML=CARDS.length?CARDS.map(c=>`<option value="${c.id}">${E(c.nome)} (fecha dia ${c.fecha})</option>`).join(''):'<option value="">Nenhum cartão cadastrado</option>';if(CARDS.some(c=>c.id==v))s.value=v}
+function prevG(){const f=document.forms.fg,p=$('#gprev');if(f.cat.value!='cartao'){p.hidden=true;return}p.hidden=false;
+ if(!CARDS.length){p.className='note err';p.innerHTML='Cadastre seu cartão em <b>Config.</b> (dia que fecha e dia que vence) antes de lançar compras no cartão.';return}
+ const c=CARDS.find(z=>z.id==f.cartao.value)||CARDS[0];p.className='note';if(!f.data.value){p.textContent='Informe a data da compra.';return}
+ const fi=faturaIdx(f.data.value,c),n=Math.max(1,parseInt(f.n.value)||1),d=+f.data.value.slice(8),fc=Math.min(c.fecha,ultDia(+f.data.value.slice(0,4),+f.data.value.slice(5,7)-1));
+ p.innerHTML=`${d>=fc?'Compra no dia do fechamento ou depois: ':'Compra antes do fechamento: '}entra na fatura de <b>${fm(fi)}</b> (vence ${dueStr({dia:c.vence},fi)})${n>1?` · última parcela em <b>${fm(fi+n-1)}</b>`:''}.`}
+function plano(){const M=META,el=$('#pl');if(!M||!(M.valor>0)){el.innerHTML='<div class="card mu">Informe sua meta acima para ver o plano.</div>';return}
+ const alvo=Math.max(0,M.valor-(M.guardado||0));if(alvo==0){el.innerHTML='<div class="st" style="--c:var(--ok)"><b>Meta atingida 🎉</b><div class="mu">Você já guardou o valor da meta.</div></div>';return}
+ const sob=m=>soma(m,'r')-soma(m,'g'),s0=sob(AGORA);
+ const meses=(p,ex=0)=>{let ac=0;for(let k=0;k<120;k++){ac+=Math.max(0,sob(AGORA+k))*p+ex;if(ac>=alvo)return k+1}return null};
+ const fmtM=n=>n==null?'mais de 10 anos':n+(n==1?' mês':' meses')+' (até '+fm(AGORA+n-1)+')';
+ let h=`<div class="card"><div class="sum"><div><small>Falta juntar</small><b>${R(alvo)}</b></div><div><small>Sobra deste mês</small><b class="${s0<0?'neg':'pos'}">${R(s0)}</b></div><div><small>Meta</small><b>${R(M.valor)}</b></div></div></div>`;
+ h+=`<h2>Em quanto tempo você junta</h2><div class="card">`+[[1,'Guardando 100% da sobra'],[.7,'Guardando 70% da sobra'],[.5,'Guardando 50% da sobra']].map(([p,t])=>`<div class="row" style="cursor:default"><div>${t}<small>${R(Math.max(0,s0)*p)} no mês atual</small></div><div class="v" style="white-space:normal"><b>${fmtM(meses(p))}</b></div></div>`).join('')+`<small class="mu">Considera os meses futuros: quando uma parcela termina, a sobra aumenta.</small></div>`;
+ if(M.prazo>0){const need=alvo/M.prazo;let sm=0;for(let k=0;k<M.prazo;k++)sm+=Math.max(0,sob(AGORA+k));const avg=sm/M.prazo,ok=need<=avg;
+  h+=`<h2>Para juntar em ${M.prazo} meses</h2><div class="st" style="--c:${ok?'var(--ok)':'var(--bad)'}"><b>Guardar ${R(need)} por mês</b><div class="mu">${ok?`Cabe na sua sobra média de ${R(avg)} (${Math.round(need/avg*100)}% dela).`:`Sua sobra média no período é ${R(avg)}: faltam ${R(need-avg)} por mês. Veja as estratégias abaixo ou aumente o prazo.`}</div></div>`}
+ const gc={};L.filter(i=>i.k=='g'&&ativo(i,AGORA)).forEach(i=>gc[i.cat]=(gc[i.cat]||0)+i.v);
+ const cortes=Object.entries(gc).filter(([c])=>c!='financiamento'&&c!='aluguel').sort((a,b)=>b[1]-a[1]).slice(0,2);
+ const fimS=L.filter(i=>i.k=='g'&&i.n>1&&fim(i)>=AGORA&&fim(i)<AGORA+12).sort((a,b)=>fim(a)-fim(b)).slice(0,3);
+ const sug=M.prazo>0?alvo/M.prazo:Math.max(0,s0)*.7,m1=meses(1),m1x=meses(1,100),T=[];
+ if(s0<=0)T.push('<b>Abra folga primeiro:</b> neste mês não sobra dinheiro. Antes de guardar, reduza gastos ou aumente a renda até a sobra ficar positiva.');
+ if(sug>0)T.push(`<b>Pague-se primeiro:</b> separe ${R(sug)} assim que receber, antes de gastar, e trate como uma conta fixa.`);
+ cortes.forEach(([c,v])=>T.push(`<b>Reduza ${CATS[c]}:</b> hoje são ${R(v)} por mês; cortando 10% você libera ${R(v*.1)} por mês (${R(v*1.2)} por ano).`));
+ fimS.forEach(i=>T.push(`<b>Parcela acabando:</b> ${E(i.desc)} termina em ${fm(fim(i))} e libera ${R(i.v)} por mês. Direcione esse valor para a meta.`));
+ if(m1&&m1x&&m1x<m1)T.push(`<b>Renda extra:</b> cada R$ 100 a mais por mês adianta a meta em ${m1-m1x} ${m1-m1x>1?'meses':'mês'}.`);
+ T.push('<b>Guarde fora da conta corrente:</b> deixe o dinheiro separado, em uma conta ou aplicação de liquidez diária, para não gastar sem querer.');
+ h+=`<h2>Estratégias para guardar</h2><div class="card">`+T.map(t=>`<div class="row" style="cursor:default"><div>${t}</div></div>`).join('')+`<small class="mu">Sugestões gerais com base nos seus números; não são recomendação de investimento.</small></div>`;
+ el.innerHTML=h}
+function setTab(t){document.querySelectorAll('.pg').forEach(p=>p.hidden=p.id!='p-'+t);document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));scrollTo(0,0)}
+function syncG(){const cc=$('#gcat').value=='cartao';$('#gcard').hidden=!cc;$('#gdia').style.display=cc?'none':'';prevG();const p=PARC.includes($('#gcat').value);$('#gn').style.display=p?'':'none';$('#gfx').style.display=p?'none':'';$('#gval').placeholder=p?'Valor da compra':'Valor mensal';if(!edG)document.forms.fg.fixo.checked=FIXAS.includes($('#gcat').value)}
+function resetG(){edG=null;const f=document.forms.fg;f.reset();f.data.value=hojeISO;$('#tg').textContent='Adicionar gasto';syncG()}
+function resetR(){edR=null;const f=document.forms.fr;f.reset();f.mes.value=hojeISO.slice(0,7);$('#tr').textContent='Cadastrar renda'}
+$('#gcat').innerHTML=Object.entries(CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');$('#gcat').onchange=syncG;
+['#gcar','#gdata','#gn'].forEach(s=>$(s).addEventListener('input',prevG));
+document.forms.fg.onsubmit=e=>{e.preventDefault();const f=e.target,cat=f.cat.value,[y,m]=f.data.value.split('-'),val=+f.valor.value,p=PARC.includes(cat),n=p?Math.max(1,parseInt(f.n.value)||1):(f.fixo.checked?0:1),sc=f.cs.checked&&SHARE=='casal'?'casal':'pessoal';
+ if(sc=='casal'&&!prof.couple_code)return msg('A administradora ainda não definiu o código do casal para o seu perfil.');
+ const cc=cat=='cartao',card=cc?CARDS.find(z=>z.id==f.cartao.value):null,old=edG?L.find(z=>z.id==edG)||{}:{};
+ if(cc&&!card){msg('Cadastre seu cartão em Config. (dia que fecha e dia que vence) antes de lançar compras no cartão.');return setTab('cfg')}
+ salvar(edG,{k:'g',cat,desc:f.desc.value,total:val,n,v:n>0?val/n:val,ini:card?faturaIdx(f.data.value,card):idx(+y,+m),data:f.data.value,scope:sc,cartao_id:card?card.id:null,hadCard:!!old.cartao_id,dia:!cc&&f.dia.value?Math.min(31,Math.max(1,parseInt(f.dia.value)||1)):null,pg:old.pg||{}},()=>{resetG();setTab('home')})};
+function resetC(){edC=null;document.forms.fcd.reset();$('#tcd').textContent='Cadastrar cartão'}
+const dia31=v=>Math.min(31,Math.max(1,parseInt(v)||1));
+document.forms.fcd.onsubmit=async e=>{e.preventDefault();const f=e.target,o={nome:f.nome.value.trim(),fecha:dia31(f.fecha.value),vence:dia31(f.vence.value)};
+ const{error}=edC?await sb.from('cartoes').update(o).eq('id',edC):await sb.from('cartoes').insert(o);
+ if(error)return msg(/cartoes|relation|schema/.test(error.message)?SQLMSG:'Não foi possível salvar o cartão.');
+ const id=edC;resetC();await load();
+ if(id){const c=CARDS.find(z=>z.id==id);for(const i of L.filter(i=>cardOf(i)===c&&mine(i)))await sb.from('items').update({ini:i.ini}).eq('id',i.id)}
+ msg('Cartão salvo.',1);render()};
+$('#cdc').onclick=resetC;
+document.forms.fr.onsubmit=e=>{e.preventDefault();const f=e.target,[y,m]=f.mes.value.split('-');
+ salvar(edR,{k:'r',cat:f.cat.value,desc:f.desc.value,v:+f.valor.value,n:f.fixa.checked?0:1,ini:idx(+y,+m)},resetR)};
+document.forms.fmeta.onsubmit=async e=>{e.preventDefault();const f=e.target,o={valor:+f.valor.value,guardado:+f.guardado.value||0,prazo:parseInt(f.prazo.value)||0};
+ const{error}=await sb.from('metas').upsert({user_id:user.id,...o});
+ if(error)return msg(/metas/.test(error.message)?'Falta rodar o SQL de atualização no Supabase (veja o LEIA-ME).':'Não foi possível salvar a meta.');
+ META=o;msg();render()};
+document.forms.fp.onsubmit=async e=>{e.preventDefault();const f=e.target,er=await setPw(f.a.value,f.b.value);if(er)msg(er);else{msg('Senha alterada.',1);f.reset()}};
+$('#cm').onchange=async e=>{const md=e.target.value,{error}=await sb.from('profiles').update({mode:md}).eq('id',user.id);
+ if(error){e.target.value=prof.mode;return msg(/permission|mode/.test(error.message)?'Falta rodar o SQL de atualização no Supabase (veja o LEIA-ME).':error.message)}
+ prof.mode=md;await load();msg('Controle salvo.',1);render()};
+$('#bbtn').onclick=()=>ls('bio')?disableBio():enableBio();
+$('#gc').onclick=()=>{resetG();setTab('home')};$('#rc').onclick=resetR;$('#out').onclick=logout;$('#eye').onclick=()=>document.body.classList.toggle('hide');
+$('#pv').onclick=()=>{mes--;render()};$('#cpv').onclick=()=>{mes--;render()};$('#cnx').onclick=()=>{mes++;render()};$('#nx').onclick=()=>{mes++;render()};
+
+/* ---------- administração ---------- */
+async function callFn(body){const{data:{session}}=await sb.auth.getSession();
+ const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token,apikey:KEY},body:JSON.stringify(body)});
+ const j=await r.json().catch(()=>({error:'Resposta inválida'}));return r.ok?j:{error:j.error||('Erro '+r.status)}}
+const shSel=v=>`<label class="mu">Compartilhamento do casal</label><select name="sh"><option value="tudo" ${v=='tudo'?'selected':''}>Tudo junto (um caixa único)</option><option value="casal" ${v=='casal'?'selected':''}>Rendas + gastos marcados como casal</option><option value="rendas" ${v=='rendas'?'selected':''}>Só as rendas</option></select>`;
+const pessoaF=k=>`<input name="n${k}" placeholder="Nome" maxlength="60"><select name="t${k}"><option value="ambos">Entra com nome e CPF</option><option value="nome">Só nome de login</option><option value="cpf">Só CPF</option></select><input name="l${k}" placeholder="Nome de login (ex.: davi)" autocapitalize="none" autocomplete="off"><input name="c${k}" placeholder="CPF (11 números)" inputmode="numeric" autocomplete="off">`;
+async function admV(){
+ const r=await callFn({action:'list'}),a=$('#adm');
+ if(r.error){a.innerHTML=`<h2>Administração</h2><div class="card">${E(r.error)}</div>`;return}
+ users=r.users;const ed=users.find(u=>u.id==edU);
+ const who=u=>E([u.login_name,u.cpf?fmtU(u.cpf):''].filter(Boolean).join(' · ')||u.username);
+ const par=u=>{const o=u.mode=='casal'&&u.couple_code?users.find(x=>x.id!=u.id&&x.couple_code==u.couple_code):null;return u.mode=='casal'?'Casal'+(o?' com '+E(o.display_name||o.username):''):'Solteiro(a)'};
+ const others=ed?users.filter(u=>u.id!=ed.id):[],cur=ed&&ed.couple_code?others.find(u=>u.couple_code==ed.couple_code):null;
+ const editF=ed?`<form class="card" id="fe"><b>Editar ${E(ed.display_name||ed.username)}</b>
+  <input name="n" value="${E(ed.display_name)}" placeholder="Nome" required maxlength="60">
+  <label class="mu">Acesso</label><select name="r"><option value="user">Usuária</option><option value="admin" ${ed.is_admin?'selected':''}>Administradora</option></select>
+  <label class="mu">Controle</label><select name="m"><option value="solteiro">Solteiro(a)</option><option value="casal" ${ed.mode=='casal'?'selected':''}>Casal</option></select>
+  <div class="ce" ${ed.mode=='casal'?'':'hidden'}><label class="mu">Casal com</label><select name="p"><option value="">Ninguém ainda (o código é gerado sozinho)</option>${others.map(u=>`<option value="${u.id}" ${cur&&cur.id==u.id?'selected':''}>${E(u.display_name||u.username)}</option>`).join('')}</select>${shSel(ed.share||'tudo')}</div>
+  <div class="g2"><button type="button" data-ac="1">Cancelar</button><button class="pri">Salvar</button></div>
+  ${ed.id==user.id?'':`<div class="g2"><button type="button" data-ar="${ed.id}">Resetar senha</button><button type="button" data-ad="${ed.id}">Remover</button></div>`}</form>`:'';
+ a.innerHTML=`<h2>Administração</h2>${editF}
+ <div class="card">${users.map(u=>`<div class="row" style="cursor:default"><div>${E(u.display_name||u.username)}<small>${who(u)} · ${u.is_admin?'Administradora · ':''}${par(u)}</small></div><div class="v"><button data-ae="${u.id}">Editar</button></div></div>`).join('')}</div>
+ <button class="pri" data-an="1" style="width:100%">＋ Cadastrar pessoa ou casal</button>
+ <div id="fnw" hidden><form class="card" id="fn" style="margin-top:8px"><b>Cadastrar</b>
+  <select name="m"><option value="solteiro">Solteiro(a)</option><option value="casal">Casal (duas pessoas)</option></select>
+  <div class="p1"><label class="mu lb"><b>Pessoa</b></label>${pessoaF(1)}</div>
+  <div class="p2" hidden><label class="mu"><b>Pessoa 2</b></label>${pessoaF(2)}</div>
+  <div class="cs" hidden>${shSel('tudo')}</div>
+  <div class="ac"><label class="mu">Acesso</label><select name="r"><option value="user">Usuária</option><option value="admin">Administradora</option></select></div>
+  <button class="pri">Cadastrar com senha ${INITIAL}</button></form></div>`;
+ const fn=$('#fn');
+ fn.m.onchange=()=>{const c=fn.m.value=='casal';fn.querySelector('.p2').hidden=!c;fn.querySelector('.cs').hidden=!c;fn.querySelector('.ac').hidden=c;fn.querySelector('.lb b').textContent=c?'Pessoa 1':'Pessoa'};
+ ['1','2'].forEach(k=>fn['t'+k].onchange=()=>{fn['l'+k].hidden=fn['t'+k].value=='cpf';fn['c'+k].hidden=fn['t'+k].value=='nome'});
+ fn.onsubmit=admNew;
+ if($('#fe')){const fe=$('#fe');fe.onsubmit=admSave;fe.m.onchange=()=>fe.querySelector('.ce').hidden=fe.m.value!='casal'}
+}
+async function admNew(ev){
+ ev.preventDefault();const f=ev.target,casal=f.m.value=='casal',ps=[];
+ for(const k of casal?['1','2']:['1']){const t=f['t'+k].value,cpf=onlyD(f['c'+k].value),nm=f['n'+k].value.trim();
+  if(!nm)return msg('Informe o nome'+(casal?' da pessoa '+k:'')+'.');
+  if(t!='nome'&&!cpfOk(cpf))return msg('CPF inválido'+(casal?' na pessoa '+k:'')+'. Confira os 11 números.');
+  ps.push({display_name:nm,login_type:t,login_name:f['l'+k].value,cpf,role:casal?'user':f.r.value})}
+ const r=casal?await callFn({action:'create_couple',people:ps,share:f.sh.value}):await callFn({action:'create',...ps[0]});
+ if(r.error)msg(r.error);else msg(casal?`Casal cadastrado. Senha inicial das duas pessoas: ${r.initial_password}. Cada uma troca no primeiro acesso.`:`Acesso criado. Senha inicial: ${r.initial_password}. Será pedida a troca no primeiro acesso.`,1);
+ admV();
+}
+async function admSave(ev){
+ ev.preventDefault();const f=ev.target,me=users.find(u=>u.id==edU),casal=f.m.value=='casal',pt=casal&&f.p.value?users.find(u=>u.id==f.p.value):null;
+ const code=casal?((pt&&pt.mode=='casal'&&pt.couple_code)||(me.mode=='casal'&&me.couple_code)||('casal-'+Math.random().toString(36).slice(2,8))):'';
+ let r=await callFn({action:'update',id:edU,display_name:f.n.value.trim(),role:f.r.value,mode:casal?'casal':'solteiro',couple_code:code,share:f.sh.value});
+ if(!r.error&&pt&&(pt.mode!='casal'||pt.couple_code!=code))r=await callFn({action:'update',id:pt.id,display_name:pt.display_name,role:pt.is_admin?'admin':'user',mode:'casal',couple_code:code,share:f.sh.value});
+ if(r.error)msg(r.error);else{msg(pt?`Ligados: ${me.display_name} e ${pt.display_name}.`:'Dados salvos.',1);if(edU==user.id)await loadProf();edU=null}
+ admV();
+}
+async function admAct(a,id){
+ const u=users.find(x=>x.id==id),name=u?(u.display_name||u.username):'esta pessoa';
+ if(!confirm(a=='reset'?`Resetar a senha de ${name} para ${INITIAL}?`:`Remover ${name} e todos os dados dessa pessoa? Não dá para desfazer.`))return;
+ const r=await callFn({action:a,id});
+ if(r.error)msg(r.error);else{msg(a=='reset'?`Senha de ${name} resetada para ${INITIAL}.`:`${name} removido.`,1);edU=null}admV();
+}
+
+/* ---------- cliques ---------- */
+document.addEventListener('click',async e=>{const b=e.target.closest('button'),x=e.target.closest('[data-x]');
+ const uu=e.target.closest('[data-u]');if(!b&&uu){openU=openU==uu.dataset.u?null:uu.dataset.u;return admV()}
+ if(!b&&x){open=open==x.dataset.x?null:x.dataset.x;return render()}if(!b)return;
+ if(b.dataset.t)return setTab(b.dataset.t);
+ if(b.dataset.an){$('#fnw').hidden=!$('#fnw').hidden;return}
+ if(b.dataset.ae){edU=b.dataset.ae;return admV()}if(b.dataset.ac){edU=null;admNewOpen=false;return admV()}if(b.dataset.an){admNewOpen=true;return admV()}
+ if(b.dataset.ar)return admAct('reset',b.dataset.ar);if(b.dataset.ad)return admAct('delete',b.dataset.ad);
+ if(b.dataset.fp){const c=CARDS.find(z=>z.id==b.dataset.fp),m=+b.dataset.m;if(!c)return;const pg={...c.pg};if(pg[m])delete pg[m];else pg[m]=true;
+  const{error}=await sb.from('cartoes').update({pg}).eq('id',c.id);if(error)msg('Não foi possível atualizar a fatura.');else{msg();await load()}render();return}
+ if(b.dataset.ce){const c=CARDS.find(z=>z.id==b.dataset.ce),f=document.forms.fcd;if(!c)return;edC=c.id;f.nome.value=c.nome;f.fecha.value=c.fecha;f.vence.value=c.vence;$('#tcd').textContent='Editar cartão';f.scrollIntoView({block:'center'});return}
+ if(b.dataset.cd){const k='c'+b.dataset.cd;clearTimeout(pendT);if(pend==k){pend=null;const{error}=await sb.from('cartoes').delete().eq('id',b.dataset.cd);if(error)msg('Não foi possível excluir o cartão.');else{msg('Cartão excluído. As compras dele ficam em “Sem cartão definido”.',1);await load()}}else{pend=k;pendT=setTimeout(()=>{pend=null;render()},4000)}return render()}
+ if(b.dataset.p){const i=L.find(z=>z.id==b.dataset.p),m=+b.dataset.m;if(!i||!canEdit(i))return;const pg={...(i.pg||{})};if(pg[m])delete pg[m];else pg[m]=true;
+  const{error}=await sb.from('items').update({pg}).eq('id',i.id);if(error)msg('Não foi possível atualizar o pagamento.');else{msg();await load()}render();return}
+ if(b.dataset.e){const i=L.find(z=>z.id==b.dataset.e);if(!i)return;
+  if(i.k=='g'){const f=document.forms.fg;edG=i.id;f.cat.value=i.cat;f.desc.value=i.desc;f.valor.value=i.total;f.data.value=i.data;f.n.value=i.n>1?i.n:'';f.fixo.checked=i.n==0;f.cs.checked=i.scope=='casal';f.dia.value=i.dia||'';cardsSel();if(CARDS.length)f.cartao.value=cardOf(i)?i.cartao_id:CARDS[0].id;$('#tg').textContent='Editar gasto';syncG();setTab('add')}
+  else{const f=document.forms.fr;edR=i.id;f.cat.value=i.cat;f.desc.value=i.desc;f.valor.value=i.v;f.mes.value=Math.floor(i.ini/12)+'-'+String(i.ini%12+1).padStart(2,'0');f.fixa.checked=i.n==0;$('#tr').textContent='Editar renda';setTab('cfg')}return}
+ if(b.dataset.d){if(pend==b.dataset.d){const{error}=await sb.from('items').delete().eq('id',pend);if(error)msg('Não foi possível excluir.');else{msg();await load()}pend=null}else{clearTimeout(pendT);pend=b.dataset.d;pendT=setTimeout(()=>{pend=null;render()},4000)}render()}});
+loginV();if(ls('bio'))bioLogin(true);
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
