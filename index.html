@@ -211,7 +211,6 @@ textarea{min-height:110px;resize:vertical}
 .chapnav{display:flex;justify-content:space-between;gap:10px}
 .reflink{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--gold);font-size:.9rem;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -433,8 +432,157 @@ function estudosAuto(){
 function estudoDaSemana(){ const a=estudosAuto(); return a[_mod(semanaAtual(), a.length)]; }
 
 /* ---------- Camada de dados: Supabase ou demonstração local ---------- */
-const sb = (CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY && window.supabase)
-  ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY) : null;
+/* ---------- Conexão com o Supabase (cliente próprio, sem depender de outro site) ----------
+   - Guarda o login no próprio aparelho (localStorage deste site).
+   - Renova o acesso sozinho antes de vencer; a pessoa só sai quando tocar em "Sair".
+   - Sem internet, o login continua salvo e volta a funcionar quando a conexão voltar. */
+function criarSupaLite(URL_BASE, KEY){
+  const CHAVE = "davar_sessao_v1";
+  let memoria = null;
+  const guardar = {
+    ler(){ try{ const v=localStorage.getItem(CHAVE); if(v) return JSON.parse(v); }catch(e){} return memoria; },
+    gravar(s){ memoria=s; try{ if(s) localStorage.setItem(CHAVE, JSON.stringify(s)); else localStorage.removeItem(CHAVE); }catch(e){} }
+  };
+  const ouvintes = [];
+  const avisar = (evento, sessao) => ouvintes.forEach(f => { try{ f(evento, sessao); }catch(e){} });
+  const msgErro = (j, status) => {
+    const m = j && (j.msg || j.error_description || j.message || j.error) || ("Erro " + status);
+    const e = new Error(m); e.status = status; e.code = j && (j.code || j.error_code || j.error); return e;
+  };
+  async function req(caminho, {metodo="GET", corpo, token, extras={}}={}){
+    const h = {"apikey": KEY, ...extras};
+    if(token) h["Authorization"] = "Bearer " + token;
+    if(corpo !== undefined) h["Content-Type"] = "application/json";
+    const r = await fetch(URL_BASE + caminho, {method:metodo, headers:h, body: corpo!==undefined ? JSON.stringify(corpo) : undefined});
+    const txt = await r.text(); let j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(e){ j = {message: txt}; }
+    if(!r.ok) throw msgErro(j, r.status);
+    return j;
+  }
+  function normalizarSessao(j){
+    if(!j || !j.access_token) return null;
+    const expira = j.expires_at || (Math.floor(Date.now()/1000) + (j.expires_in || 3600));
+    return {access_token:j.access_token, refresh_token:j.refresh_token, expires_at:expira, user:j.user};
+  }
+  let renovando = null, timer = null;
+  function agendar(s){
+    clearTimeout(timer);
+    if(!s) return;
+    const ms = Math.max(5000, (s.expires_at*1000) - Date.now() - 90000);
+    timer = setTimeout(() => { renovar().catch(()=>{}); }, Math.min(ms, 2147000000));
+  }
+  async function renovar(){
+    if(renovando) return renovando;
+    renovando = (async () => {
+      const s = guardar.ler(); if(!s || !s.refresh_token) return null;
+      try{
+        const j = await req("/auth/v1/token?grant_type=refresh_token", {metodo:"POST", corpo:{refresh_token:s.refresh_token}});
+        const nova = normalizarSessao(j); if(!nova.user) nova.user = s.user;
+        guardar.gravar(nova); agendar(nova); avisar("TOKEN_REFRESHED", nova); return nova;
+      }catch(e){
+        // Só desconecta se o servidor recusar o login salvo; falta de internet NÃO desconecta.
+        if(e.status === 400 || e.status === 401 || e.status === 403){
+          const atual = guardar.ler();
+          if(atual && atual.refresh_token !== s.refresh_token){ agendar(atual); return atual; } // outra aba já renovou
+          guardar.gravar(null); avisar("SIGNED_OUT", null); return null;
+        }
+        return s;
+      }
+    })();
+    try{ return await renovando; } finally { renovando = null; }
+  }
+  async function sessaoValida(){
+    const s = guardar.ler(); if(!s) return null;
+    if((s.expires_at*1000) - Date.now() < 60000) return await renovar();
+    return s;
+  }
+  async function token(){ const s = await sessaoValida(); return s ? s.access_token : null; }
+
+  const auth = {
+    async getUser(){ const s = await sessaoValida(); return {data:{user: s ? s.user : null}, error:null}; },
+    async getSession(){ const s = await sessaoValida(); return {data:{session:s}, error:null}; },
+    onAuthStateChange(f){ ouvintes.push(f); return {data:{subscription:{unsubscribe(){ const i=ouvintes.indexOf(f); if(i>=0) ouvintes.splice(i,1); }}}}; },
+    async signUp({email, password, options={}}){
+      try{
+        const q = options.emailRedirectTo ? "?redirect_to=" + encodeURIComponent(options.emailRedirectTo) : "";
+        const j = await req("/auth/v1/signup" + q, {metodo:"POST", corpo:{email, password, data: options.data || {}}});
+        const s = normalizarSessao(j);
+        if(s){ guardar.gravar(s); agendar(s); avisar("SIGNED_IN", s); return {data:{user:s.user, session:s}, error:null}; }
+        return {data:{user: j && (j.user || j), session:null}, error:null};
+      }catch(e){ return {data:{user:null, session:null}, error:e}; }
+    },
+    async signInWithPassword({email, password}){
+      try{
+        const j = await req("/auth/v1/token?grant_type=password", {metodo:"POST", corpo:{email, password}});
+        const s = normalizarSessao(j); guardar.gravar(s); agendar(s); avisar("SIGNED_IN", s);
+        return {data:{user:s.user, session:s}, error:null};
+      }catch(e){ return {data:{user:null, session:null}, error:e}; }
+    },
+    async resend({type, email, options={}}){
+      try{
+        const q = options.emailRedirectTo ? "?redirect_to=" + encodeURIComponent(options.emailRedirectTo) : "";
+        await req("/auth/v1/resend" + q, {metodo:"POST", corpo:{type, email}}); return {error:null};
+      }catch(e){ return {error:e}; }
+    },
+    async signOut(){
+      const s = guardar.ler();
+      if(s){ try{ await req("/auth/v1/logout?scope=local", {metodo:"POST", token:s.access_token}); }catch(e){} }
+      guardar.gravar(null); clearTimeout(timer); avisar("SIGNED_OUT", null); return {error:null};
+    }
+  };
+
+  // Consulta simples às tabelas (mesmo formato usado no app)
+  function from(tabela){
+    const st = {metodo:"GET", cols:"*", filtros:[], ordem:null, lim:null, corpo:undefined, um:false};
+    const qb = {
+      select(c){ st.cols = c || "*"; return qb; },
+      eq(c,v){ st.filtros.push(c + "=eq." + encodeURIComponent(v)); return qb; },
+      lte(c,v){ st.filtros.push(c + "=lte." + encodeURIComponent(v)); return qb; },
+      order(c,o={}){ st.ordem = c + "." + (o.ascending===false ? "desc" : "asc"); return qb; },
+      limit(n){ st.lim = n; return qb; },
+      insert(obj){ st.metodo="POST"; st.corpo=obj; return qb; },
+      update(obj){ st.metodo="PATCH"; st.corpo=obj; return qb; },
+      delete(){ st.metodo="DELETE"; return qb; },
+      maybeSingle(){ st.um = true; return qb; },
+      single(){ st.um = true; return qb; },
+      then(ok, falha){ return executar().then(ok, falha); }
+    };
+    async function executar(){
+      const p = [];
+      if(st.metodo==="GET") p.push("select=" + encodeURIComponent(st.cols));
+      p.push(...st.filtros);
+      if(st.ordem) p.push("order=" + st.ordem);
+      if(st.lim) p.push("limit=" + st.lim);
+      const caminho = "/rest/v1/" + tabela + (p.length ? "?" + p.join("&") : "");
+      const extras = st.metodo==="GET" ? {} : {"Prefer":"return=minimal"};
+      const tentar = async () => req(caminho, {metodo:st.metodo, corpo:st.corpo, token: await token(), extras});
+      try{
+        let j;
+        try{ j = await tentar(); }
+        catch(e){ if(e.status===401 && guardar.ler()){ await renovar(); j = await tentar(); } else throw e; }
+        if(st.um) return {data: Array.isArray(j) ? (j[0] || null) : j, error:null};
+        return {data: j, error:null};
+      }catch(e){ return {data:null, error:e}; }
+    }
+    return qb;
+  }
+  async function rpc(fn, args){
+    try{
+      const tentar = async () => req("/rest/v1/rpc/" + fn, {metodo:"POST", corpo:args||{}, token: await token()});
+      let j; try{ j = await tentar(); }catch(e){ if(e.status===401 && guardar.ler()){ await renovar(); j = await tentar(); } else throw e; }
+      return {data:j, error:null};
+    }catch(e){ return {data:null, error:e}; }
+  }
+
+  // Ao abrir o app e ao voltar para ele, confere e renova o login salvo
+  agendar(guardar.ler());
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) sessaoValida().catch(()=>{}); });
+  window.addEventListener("online", () => sessaoValida().catch(()=>{}));
+  window.addEventListener("storage", ev => { if(ev.key===CHAVE){ const s=guardar.ler(); agendar(s); avisar(s?"TOKEN_REFRESHED":"SIGNED_OUT", s); } });
+
+  return {auth, from, rpc};
+}
+
+const sb = (CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY) ? criarSupaLite(CONFIG.SUPABASE_URL.replace(/\/$/,""), CONFIG.SUPABASE_ANON_KEY) : null;
 const DEMO = !sb;
 
 const demo = {
