@@ -449,11 +449,18 @@ const api = {
   async perfil(){
     const u=await this.user(); if(!u) return null;
     if(DEMO) return {id:u.id,nome:u.nome,role:u.role};
-    const {data}=await sb.from("profiles").select("*").eq("id",u.id).single(); return data;
+    const {data}=await sb.from("profiles").select("*").eq("id",u.id).maybeSingle();
+    return data || {id:u.id, nome:(u.user_metadata&&u.user_metadata.nome)||u.email.split("@")[0], role:"ouvinte"};
   },
   async cadastrar(nome,email,senha){
     if(DEMO){ D.user={id:"demo-me",nome,email,role:"admin"}; demo.save(D); return; }
-    const {error}=await sb.auth.signUp({email,password:senha,options:{data:{nome},emailRedirectTo:location.origin+location.pathname}}); if(error) throw error;
+    const {data,error}=await sb.auth.signUp({email,password:senha,options:{data:{nome},emailRedirectTo:location.origin+location.pathname}}); if(error) throw error;
+    if(data && data.user && Array.isArray(data.user.identities) && data.user.identities.length===0) throw new Error("User already registered");
+    return !!(data && data.session);
+  },
+  async reenviar(email){
+    if(DEMO) return;
+    const {error}=await sb.auth.resend({type:"signup",email,options:{emailRedirectTo:location.origin+location.pathname}}); if(error) throw error;
   },
   async entrar(email,senha){
     if(DEMO){ D.user={id:"demo-me",nome:email.split("@")[0],email,role:"admin"}; demo.save(D); return; }
@@ -711,18 +718,42 @@ async function renderConta(){
       <label for="c-senha">Senha<input id="c-senha" type="password" required minlength="6" autocomplete="${modoCadastro?"new-password":"current-password"}"></label>
       <button class="btn" type="submit">${modoCadastro?"Criar conta":"Entrar"}</button>
     </form>
+    <div class="notice" id="c-aviso" hidden></div>
     <button class="back" id="trocar">${modoCadastro?"Já tenho conta. Entrar":"Ainda não tenho conta. Criar agora"}</button></div>${instalarHTML()}`;
   $("#trocar").onclick=()=>{modoCadastro=!modoCadastro; renderConta();};
   $("#f-conta").addEventListener("submit", async ev=>{
     ev.preventDefault();
+    const email=$("#c-email").value.trim(), btn=ev.submitter||$("#f-conta button");
+    btn.disabled=true;
     try{
-      if(modoCadastro) await api.cadastrar($("#c-nome").value.trim(),$("#c-email").value.trim(),$("#c-senha").value);
-      else await api.entrar($("#c-email").value.trim(),$("#c-senha").value);
+      if(modoCadastro){
+        const entrou = await api.cadastrar($("#c-nome").value.trim(),email,$("#c-senha").value);
+        if(!entrou && !DEMO){ modoCadastro=false; renderConta(); $("#c-email").value=email; avisoConfirmar(email,true); return; }
+      } else await api.entrar(email,$("#c-senha").value);
       await atualizarPerfil();
-      if(!perfil && !DEMO){ toast("Conta criada. Confirme pelo link enviado ao seu e-mail e depois entre."); modoCadastro=false; renderConta(); return; }
       toast("Bem-vindo(a)!"); ir("radio");
-    }catch(e){ toast(e.message.includes("Invalid login")?"E-mail ou senha incorretos.":e.message); }
+    }catch(e){
+      const m=String(e.message||e);
+      if(/not confirmed/i.test(m)) avisoConfirmar(email,false);
+      else toast(traduzErro(m));
+    }finally{ btn.disabled=false; }
   });
+}
+function traduzErro(m){
+  if(/Invalid login/i.test(m)) return "E-mail ou senha incorretos. Confira e tente de novo.";
+  if(/already registered|already been registered/i.test(m)) return "Este e-mail já tem conta. Toque em \"Já tenho conta. Entrar\".";
+  if(/at least 6|Password should/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  if(/rate limit|too many|security purposes/i.test(m)) return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";
+  if(/invalid.*email|Unable to validate email/i.test(m)) return "Esse e-mail não parece válido. Confira se digitou certo.";
+  if(/Failed to fetch|NetworkError|network/i.test(m)) return "Sem conexão com a internet. Verifique e tente de novo.";
+  return "Não foi possível concluir: "+m;
+}
+function avisoConfirmar(email,recemCriada){
+  const a=$("#c-aviso"); if(!a) return;
+  a.hidden=false;
+  a.innerHTML=`<strong>${recemCriada?"Conta criada!":"Falta confirmar seu e-mail."}</strong> Enviamos um link para <strong>${esc(email)}</strong>. Abra o e-mail (veja também o spam e a aba Promoções), toque no link e depois entre aqui.
+    <div class="row" style="margin-top:10px"><button class="btn ghost" type="button" id="c-reenviar">Reenviar e-mail</button></div>`;
+  $("#c-reenviar").onclick=async()=>{ try{ await api.reenviar(email); toast("E-mail reenviado. Confira sua caixa de entrada."); }catch(e){ toast(traduzErro(String(e.message||e))); } };
 }
 function instalarHTML(){ return `<div class="card"><h3>Instale no seu celular</h3><p class="muted small" style="margin:0"><strong>Android (Chrome):</strong> menu ⋮ → "Adicionar à tela inicial".<br><strong>iPhone (Safari):</strong> botão compartilhar → "Adicionar à Tela de Início".</p></div>`; }
 
